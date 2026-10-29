@@ -85,3 +85,7 @@ class TestOrders:
         )
 
         assert response.status_code == 500, response.text
+        assert response.headers.get("Content-Type", "").startswith(
+            "text/html"
+        )
+        assert "<pre>Internal Server Error</pre>" in response.text
