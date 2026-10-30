@@ -1,18 +1,7 @@
-from uuid import uuid4
-
 import pytest
 
 from api.burger_api import BurgerApi
-
-
-@pytest.fixture
-def user_data():
-    unique_id = uuid4().hex
-    return {
-        "email": f"test_{unique_id}@example.com",
-        "password": f"Password_{unique_id}",
-        "name": "Тестовый пользователь",
-    }
+from helpers import generate_user_data
 
 
 @pytest.fixture
@@ -31,42 +20,35 @@ def register_user():
 
     yield register
 
+    errors = []
+
     for token in tokens:
-        response = BurgerApi.delete_user(token)
-        assert response.status_code == 202, (
-            "Не удалось удалить тестового пользователя: "
-            f"{response.status_code}, {response.text}"
+        try:
+            response = BurgerApi.delete_user(token)
+            response.raise_for_status()
+        except Exception as error:
+            errors.append(str(error))
+
+    if errors:
+        raise RuntimeError(
+            "Не удалось удалить тестовых пользователей: "
+            + "; ".join(errors)
         )
 
 
 @pytest.fixture
-def registered_user(user_data, register_user):
-    response = register_user(user_data)
-
-    assert response.status_code == 200, (
-        f"Не удалось создать пользователя: {response.text}"
-    )
+def registered_user(register_user):
+    data = generate_user_data()
+    response = register_user(data)
+    response.raise_for_status()
     body = response.json()
-    assert body["success"] is True
+
+    if body.get("success") is not True or not body.get("accessToken"):
+        raise RuntimeError(
+            f"Не удалось подготовить пользователя: {response.text}"
+        )
 
     return {
-        "data": user_data,
+        "data": data,
         "token": body["accessToken"],
     }
-
-@pytest.fixture
-def ingredient_ids():
-    response = BurgerApi.get_ingredients()
-
-    assert response.status_code == 200, response.text
-
-    body = response.json()
-    assert body["success"] is True
-
-    ingredients = body["data"]
-    bun = next(item["_id"] for item in ingredients if item["type"] == "bun")
-    filling = next(
-        item["_id"] for item in ingredients if item["type"] == "main"
-    )
-
-    return [bun, filling, bun]

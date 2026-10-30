@@ -1,11 +1,15 @@
 import allure
 import pytest
 
+from helpers import generate_user_data
+
 
 @allure.feature("Регистрация пользователя")
 class TestRegistration:
     @allure.title("Создание пользователя с уникальным email")
-    def test_create_unique_user(self, user_data, register_user):
+    def test_create_unique_user(self, register_user):
+        user_data = generate_user_data()
+
         response = register_user(user_data)
 
         assert response.status_code == 200, response.text
@@ -33,9 +37,9 @@ class TestRegistration:
     @allure.title("Регистрация без обязательного поля: {field}")
     @pytest.mark.parametrize("field", ["email", "password", "name"])
     def test_create_user_without_required_field(
-        self, user_data, register_user, field
+        self, register_user, field
     ):
-        data = user_data.copy()
+        data = generate_user_data()
         data.pop(field)
 
         response = register_user(data)

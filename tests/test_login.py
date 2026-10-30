@@ -1,9 +1,7 @@
-from uuid import uuid4
-
 import allure
-import pytest
 
 from api.burger_api import BurgerApi
+from helpers import generate_user_data
 
 
 @allure.feature("Авторизация пользователя")
@@ -29,31 +27,44 @@ class TestLogin:
         assert body.get("accessToken")
         assert body.get("refreshToken")
 
-    @allure.title("Вход с неверными данными: {invalid_fields}")
-    @pytest.mark.parametrize(
-        "invalid_fields",
-        [
-            ("email",),
-            ("password",),
-            ("email", "password"),
-        ],
-        ids=["wrong_email", "wrong_password", "both_wrong"],
-    )
-    def test_login_with_invalid_credentials(
-        self, registered_user, invalid_fields
-    ):
-        user_data = registered_user["data"]
-        data = {
-            "email": user_data["email"],
-            "password": user_data["password"],
+    @allure.title("Вход с неверным email")
+    def test_login_with_wrong_email(self, registered_user):
+        unknown_user = generate_user_data()
+
+        response = BurgerApi.login_user({
+            "email": unknown_user["email"],
+            "password": registered_user["data"]["password"],
+        })
+
+        assert response.status_code == 401, response.text
+        assert response.json() == {
+            "success": False,
+            "message": "email or password are incorrect",
         }
 
-        if "email" in invalid_fields:
-            data["email"] = f"unknown_{uuid4().hex}@example.com"
-        if "password" in invalid_fields:
-            data["password"] = f"Wrong_{uuid4().hex}"
+    @allure.title("Вход с неверным паролем")
+    def test_login_with_wrong_password(self, registered_user):
+        other_data = generate_user_data()
 
-        response = BurgerApi.login_user(data)
+        response = BurgerApi.login_user({
+            "email": registered_user["data"]["email"],
+            "password": other_data["password"],
+        })
+
+        assert response.status_code == 401, response.text
+        assert response.json() == {
+            "success": False,
+            "message": "email or password are incorrect",
+        }
+
+    @allure.title("Вход с неверными email и паролем")
+    def test_login_with_wrong_email_and_password(self, registered_user):
+        unknown_user = generate_user_data()
+
+        response = BurgerApi.login_user({
+            "email": unknown_user["email"],
+            "password": unknown_user["password"],
+        })
 
         assert response.status_code == 401, response.text
         assert response.json() == {
